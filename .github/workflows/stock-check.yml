@@ -1,0 +1,54 @@
+name: Suivi stock
+
+on:
+  schedule:
+    # Toutes les 30 minutes. NB : le cron GitHub peut être décalé de 5-15 min.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}   # permet un lancement manuel depuis l'onglet Actions
+
+permissions:
+  contents: read
+
+# Évite que deux runs se chevauchent (le cron peut empiler des exécutions).
+concurrency:
+  group: suivi-stock
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Restaurer l'état précédent
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: stock-state-${{ github.run_id }}
+          restore-keys: |
+            stock-state-
+
+      - name: Vérifier le stock
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python suivi_stock_ci.py
+
+      - name: Sauvegarder l'état mis à jour
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: stock-state-${{ github.run_id }}
