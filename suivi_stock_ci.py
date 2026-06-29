@@ -120,13 +120,18 @@ def _iter_jsonld(html: str) -> Iterator[dict]:
 
 
 def availability_from_jsonld(html: str) -> Optional[bool]:
-    for node in _iter_jsonld(html):
+    nodes = list(_iter_jsonld(html))
+    if not nodes:
+        print("[debug] aucun bloc JSON-LD trouvé dans la page")
+    for node in nodes:
+        print(f"[debug] JSON-LD @type={node.get('@type')} keys={list(node.keys())}")
         offers = node.get("offers")
         if not offers:
             continue
         if isinstance(offers, list):
             offers = offers[0] if offers else {}
         availability: str = str(offers.get("availability", "")).lower()
+        print(f"[debug] offers.availability = {availability!r}")
         if "instock" in availability or "limitedavailability" in availability:
             return True
         if "outofstock" in availability or "soldout" in availability:
